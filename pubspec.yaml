@@ -1,0 +1,19 @@
+name: task_manager
+description: A simple task manager app.
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  flutter_vector_icons: ^2.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+environment:
+  sdk: '^3.1.0'
+
+flutter:
+  uses-material-design: true
