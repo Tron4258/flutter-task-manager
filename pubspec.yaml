@@ -1,11 +1,15 @@
-name: task_manager
+name: flutter_app
 description: A simple task manager app.
 
 dependencies:
   flutter:
     sdk: flutter
+  firebase_auth: ^4.5.0  # ya akharin version mojood
+  google_sign_in: ^5.2.1  # ya akharin version mojood
   cupertino_icons: ^1.0.2
   flutter_vector_icons: ^2.0.0
+  firebase_core: ^2.0.0
+  cloud_firestore: ^4.0.0
 
 dev_dependencies:
   flutter_test:

@@ -5,6 +5,7 @@ class Task {
   final DateTime dueDate;
   final bool isCompleted;
   final int priority;
+  final String userId;
 
   Task({
     required this.id,
@@ -13,22 +14,30 @@ class Task {
     required this.dueDate,
     this.isCompleted = false,
     this.priority = 2,
+    required this.userId,
   });
 
-  Task copyWith({
-    String? title,
-    String? description,
-    DateTime? dueDate,
-    bool? isCompleted,
-    int? priority,
-  }) {
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'dueDate': dueDate.toIso8601String(),
+      'isCompleted': isCompleted,
+      'priority': priority,
+      'userId': userId,
+    };
+  }
+
+  factory Task.fromMap(Map<String, dynamic> map) {
     return Task(
-      id: id,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      dueDate: dueDate ?? this.dueDate,
-      isCompleted: isCompleted ?? this.isCompleted,
-      priority: priority ?? this.priority,
+      id: map['id'],
+      title: map['title'],
+      description: map['description'],
+      dueDate: DateTime.parse(map['dueDate']),
+      isCompleted: map['isCompleted'] ?? false,
+      priority: map['priority'] ?? 2,
+      userId: map['userId'],
     );
   }
 } 
