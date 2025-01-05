@@ -9,12 +9,35 @@ import 'widgets/task_form.dart';
 import 'widgets/task_search_delegate.dart';
 import 'models/task.dart';
 import 'firebase_options.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'services/notification_service.dart';
+import 'widgets/profile_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Initialize notification service
+  final notificationService = NotificationService.instance;
+  
+  // Request notification permissions for Android 13 and above
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+  
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.requestNotificationsPermission();
+  
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+      ?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+  
   runApp(MyApp());
 }
 
@@ -52,54 +75,91 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Tasks'),
-        actions: [
-          if (user != null) ...[
-            IconButton(
-              icon: Icon(Icons.logout),
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                await GoogleSignIn().signOut();
-              },
-            ),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Tasks'),
+          actions: [
+            if (user != null) ...[
+              IconButton(
+                icon: Icon(Icons.person),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ProfilePage()),
+                  );
+                },
+              ),
+              TextButton(
+                onPressed: () async {
+                  await FirebaseAuth.instance.signOut();
+                  await GoogleSignIn().signOut();
+                },
+                child: Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
           ],
-        ],
-      ),
-      body: user != null 
-        ? TaskSearchDelegate(userId: user.uid).buildResults(context)
-        : Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/login');
-                  },
-                  child: Text('Login'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/register');
-                  },
-                  child: Text('Register'),
-                ),
-              ],
-            ),
+          bottom: TabBar(
+            tabs: [
+              Tab(text: 'Active Tasks'),
+              Tab(text: 'Completed'),
+            ],
           ),
-      floatingActionButton: user != null
-        ? FloatingActionButton(
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (context) => TaskForm(userId: user.uid),
-              );
-            },
-            child: Icon(Icons.add),
-          )
-        : null,
+        ),
+        body: user != null 
+          ? TabBarView(
+              children: [
+                // Active Tasks Tab
+                TaskSearchDelegate(
+                  userId: user.uid,
+                  showCompleted: false,
+                ).buildResults(context),
+                // Completed Tasks Tab
+                TaskSearchDelegate(
+                  userId: user.uid,
+                  showCompleted: true,
+                ).buildResults(context),
+              ],
+            )
+          : Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/login');
+                    },
+                    child: Text('Login'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/register');
+                    },
+                    child: Text('Register'),
+                  ),
+                ],
+              ),
+            ),
+        floatingActionButton: user != null
+          ? FloatingActionButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (context) => TaskForm(userId: user.uid),
+                );
+              },
+              child: Icon(Icons.add),
+            )
+          : null,
+      ),
     );
   }
 }

@@ -1,303 +1,185 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:intl/intl.dart';
 import '../models/task.dart';
-import '../models/task_category.dart';
-
-
 
 class TaskCard extends StatelessWidget {
-
   final Task task;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final ValueChanged<bool> onStatusChanged;
 
-  final VoidCallback onTap;
-
-  final VoidCallback? onDelete;
-
-
-
-  const TaskCard({
-
-    super.key,
-
+  TaskCard({
     required this.task,
-
-    required this.onTap,
-
-    this.onDelete,
-
+    required this.onEdit,
+    required this.onDelete,
+    required this.onStatusChanged,
   });
 
+  Color _getPriorityColor() {
+    switch (task.priority) {
+      case 3:
+        return Colors.red;
+      case 2:
+        return Colors.orange;
+      case 1:
+        return Colors.yellow;
+      default:
+        return Colors.grey;
+    }
+  }
 
+  String _getPriorityText() {
+    switch (task.priority) {
+      case 3:
+        return 'High';
+      case 2:
+        return 'Medium';
+      case 1:
+        return 'Low';
+      default:
+        return 'None';
+    }
+  }
 
   @override
-
   Widget build(BuildContext context) {
+    final isOverdue = !task.isCompleted && task.dueDate.isBefore(DateTime.now());
 
     return Card(
-
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-
-      child: Column(
-
-        mainAxisSize: MainAxisSize.min,
-
-        children: [
-
-          if (task.categoryId != null)
-
-            StreamBuilder<DocumentSnapshot>(
-
-              stream: FirebaseFirestore.instance
-
-                  .collection('categories')
-
-                  .doc(task.categoryId)
-
-                  .snapshots(),
-
-              builder: (context, snapshot) {
-
-                if (!snapshot.hasData) return SizedBox();
-
-                
-
-                final category = TaskCategory.fromMap({
-
-                  ...snapshot.data!.data() as Map<String, dynamic>,
-
-                  'id': snapshot.data!.id,
-
-                });
-
-
-
-                return Container(
-
-                  color: category.color.withOpacity(0.1),
-
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-
-                  child: Row(
-
-                    children: [
-
-                      Container(
-
-                        width: 12,
-
-                        height: 12,
-
-                        decoration: BoxDecoration(
-
-                          color: category.color,
-
-                          shape: BoxShape.circle,
-
-                        ),
-
-                      ),
-
-                      SizedBox(width: 8),
-
-                      Text(
-
-                        category.name,
-
-                        style: TextStyle(
-
-                          color: category.color,
-
-                          fontWeight: FontWeight.bold,
-
-                        ),
-
-                      ),
-
-                    ],
-
+      elevation: 2,
+      child: Container(
+        decoration: BoxDecoration(
+          border: isOverdue
+              ? Border(
+                  left: BorderSide(
+                    color: Colors.red,
+                    width: 4,
                   ),
-
-                );
-
-              },
-
-            ),
-
-          ListTile(
-
-            title: Text(
-
-              task.title,
-
-              style: TextStyle(
-
-                decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-
-              ),
-
-            ),
-
-            subtitle: Text(task.description),
-
-            trailing: Row(
-
-              mainAxisSize: MainAxisSize.min,
-
+                )
+              : null,
+        ),
+        child: InkWell(
+          onTap: task.isCompleted ? null : onEdit,
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
-                _buildPriorityChip(),
-
-                const SizedBox(width: 8),
-
-                Text(
-
-                  _formatDate(task.dueDate),
-
-                  style: Theme.of(context).textTheme.bodySmall,
-
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            task.title,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+                              color: task.isCompleted ? Colors.grey : null,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _getPriorityColor().withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              _getPriorityText(),
+                              style: TextStyle(
+                                color: _getPriorityColor(),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!task.isCompleted)
+                          IconButton(
+                            icon: Icon(Icons.check_circle_outline),
+                            onPressed: () => onStatusChanged(true),
+                            tooltip: 'Mark as completed',
+                          ),
+                        if (task.isCompleted)
+                          IconButton(
+                            icon: Icon(
+                              Icons.undo,
+                              color: Colors.blue,
+                            ),
+                            onPressed: () => onStatusChanged(false),
+                            tooltip: 'Mark as active',
+                          ),
+                        IconButton(
+                          icon: Icon(Icons.delete),
+                          onPressed: onDelete,
+                          tooltip: 'Delete task',
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-
-                if (onDelete != null) ...[
-
-                  const SizedBox(width: 8),
-
-                  IconButton(
-
-                    icon: Icon(Icons.delete, color: Colors.red),
-
-                    onPressed: onDelete,
-
-                  ),
-
-                ],
-
-              ],
-
-            ),
-
-            onTap: onTap,
-
-          ),
-
-          if (_isOverdue())
-
-            Container(
-
-              color: Colors.red.withOpacity(0.1),
-
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-
-              child: Row(
-
-                children: [
-
-                  Icon(Icons.warning, color: Colors.red, size: 16),
-
-                  SizedBox(width: 8),
-
+                if (task.description.isNotEmpty) ...[
+                  SizedBox(height: 8),
                   Text(
-
-                    'Overdue',
-
-                    style: TextStyle(color: Colors.red),
-
+                    task.description,
+                    style: TextStyle(
+                      color: task.isCompleted ? Colors.grey : null,
+                    ),
                   ),
-
                 ],
-
-              ),
-
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: isOverdue ? Colors.red : Colors.grey,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Due: ${DateFormat('MMM d, y').format(task.dueDate)}',
+                      style: TextStyle(
+                        color: task.isCompleted 
+                          ? Colors.grey 
+                          : isOverdue
+                            ? Colors.red
+                            : Colors.grey,
+                      ),
+                    ),
+                    if (isOverdue) ...[
+                      SizedBox(width: 8),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'OVERDUE',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ),
-
-        ],
-
+          ),
+        ),
       ),
-
     );
-
   }
-
-
-
-  Widget _buildPriorityChip() {
-
-    Color color;
-
-    String label;
-
-    
-
-    switch (task.priority) {
-
-      case 1:
-
-        color = Colors.green;
-
-        label = 'Low';
-
-        break;
-
-      case 2:
-
-        color = Colors.orange;
-
-        label = 'Medium';
-
-        break;
-
-      case 3:
-
-        color = Colors.red;
-
-        label = 'High';
-
-        break;
-
-      default:
-
-        color = Colors.grey;
-
-        label = 'None';
-
-    }
-
-
-
-    return Chip(
-
-      label: Text(
-
-        label,
-
-        style: TextStyle(color: Colors.white, fontSize: 12),
-
-      ),
-
-      backgroundColor: color,
-
-      padding: EdgeInsets.zero,
-
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-
-    );
-
-  }
-
-
-
-  bool _isOverdue() {
-
-    return !task.isCompleted && task.dueDate.isBefore(DateTime.now());
-
-  }
-
-
-
-  String _formatDate(DateTime date) {
-
-    return '${date.day}/${date.month}/${date.year}';
-
-  }
-
 } 

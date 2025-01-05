@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/task.dart';
 import 'task_card.dart';
+import '../services/notification_service.dart';
 
 class TaskForm extends StatefulWidget {
   final String userId;
@@ -122,6 +123,9 @@ class _TaskFormState extends State<TaskForm> {
             .collection('tasks')
             .doc(task.id)
             .set(task.toMap());
+        
+        await NotificationService.instance.scheduleTaskReminder(task);
+        
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/task.dart';
+import '../services/notification_service.dart';
 
 class TaskEditForm extends StatefulWidget {
   final Task task;
@@ -236,6 +237,13 @@ class _TaskEditFormState extends State<TaskEditForm> {
           .collection('tasks')
           .doc(updatedTask.id)
           .update(updatedTask.toMap());
+      
+      // Update notification
+      if (updatedTask.isCompleted) {
+        await NotificationService.instance.cancelTaskReminder(updatedTask);
+      } else {
+        await NotificationService.instance.scheduleTaskReminder(updatedTask);
+      }
       
       Navigator.pop(context);
       _showSuccessSnackBar(context, 'Task updated successfully');

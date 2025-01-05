@@ -5,6 +5,7 @@ import '../models/task.dart';
 import 'task_card.dart';
 import 'task_edit_form.dart';
 import '../models/task_category.dart';
+import '../services/notification_service.dart';
 
 enum SortOption {
   dueDate,
@@ -26,10 +27,14 @@ void _logError(String operation, dynamic error, StackTrace? stackTrace) {
 
 class TaskSearchDelegate extends SearchDelegate {
   final String userId;
+  final bool showCompleted;
   SortOption _currentSort = SortOption.dueDate;
   String? _selectedCategoryId;
 
-  TaskSearchDelegate({required this.userId});
+  TaskSearchDelegate({
+    required this.userId,
+    this.showCompleted = false,
+  });
 
   @override
   List<Widget> buildActions(BuildContext context) {
@@ -279,30 +284,50 @@ class TaskSearchDelegate extends SearchDelegate {
 
             return TaskCard(
               task: task,
-              onTap: () {
-                if (Theme.of(context).platform == TargetPlatform.android || 
-                    Theme.of(context).platform == TargetPlatform.iOS) {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    builder: (context) => TaskEditForm(task: task),
-                  );
-                } else {
-                  showDialog(
-                    context: context,
-                    builder: (context) => Dialog(
-                      child: Container(
-                        width: 600,
-                        constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height * 0.8,
-                        ),
-                        child: TaskEditForm(task: task),
+              onEdit: task.isCompleted 
+                ? () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Completed tasks cannot be edited'),
+                        backgroundColor: Colors.grey,
                       ),
-                    ),
+                    );
+                  }
+                : () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => Scaffold(
+                          appBar: AppBar(
+                            title: Text('Edit Task'),
+                          ),
+                          body: TaskEditForm(task: task),
+                        ),
+                      ),
+                    );
+                  },
+              onDelete: () => _showDeleteConfirmation(context, task),
+              onStatusChanged: (bool isCompleted) async {
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('tasks')
+                      .doc(task.id)
+                      .update({'isCompleted': isCompleted});
+                      
+                  if (isCompleted) {
+                    await NotificationService.instance.cancelTaskReminder(task);
+                  } else {
+                    await NotificationService.instance.scheduleTaskReminder(task);
+                  }
+                  
+                  _showSuccessSnackBar(
+                    context, 
+                    isCompleted ? 'Task completed!' : 'Task marked as active'
                   );
+                } catch (e, stackTrace) {
+                  _logError('Update Task Status', e, stackTrace);
+                  _showErrorSnackBar(context, 'Error updating task status');
                 }
               },
-              onDelete: () => _showDeleteConfirmation(context, task),
             );
           },
         );
@@ -315,7 +340,8 @@ class TaskSearchDelegate extends SearchDelegate {
     try {
       var baseQuery = FirebaseFirestore.instance
           .collection('tasks')
-          .where('userId', isEqualTo: userId);
+          .where('userId', isEqualTo: userId)
+          .where('isCompleted', isEqualTo: showCompleted);
 
       // Add category filter if selected
       if (_selectedCategoryId != null) {
@@ -335,18 +361,13 @@ class TaskSearchDelegate extends SearchDelegate {
       // Add sorting
       switch (_currentSort) {
         case SortOption.dueDate:
-          print('📅 Sorting by due date');
           return baseQuery.orderBy('dueDate', descending: false).snapshots();
         case SortOption.priority:
-          print('⚡ Sorting by priority');
           return baseQuery.orderBy('priority', descending: true).snapshots();
         case SortOption.title:
-          print('📝 Sorting by title');
           return baseQuery.orderBy('title', descending: false).snapshots();
         case SortOption.status:
-          print('✓ Sorting by status');
           return baseQuery
-              .orderBy('isCompleted', descending: false)
               .orderBy('dueDate', descending: false)
               .snapshots();
       }
@@ -402,6 +423,9 @@ class TaskSearchDelegate extends SearchDelegate {
                     .collection('tasks')
                     .doc(task.id)
                     .delete();
+                
+                // Cancel notification
+                await NotificationService.instance.cancelTaskReminder(task);
                 
                 print('✅ Task deleted successfully');
                 Navigator.pop(context);
