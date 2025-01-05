@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/task.dart';
+import '../models/task_category.dart';
 
 
 
@@ -10,7 +12,7 @@ class TaskCard extends StatelessWidget {
 
   final VoidCallback onTap;
 
-  final VoidCallback onComplete;
+  final VoidCallback? onDelete;
 
 
 
@@ -22,7 +24,7 @@ class TaskCard extends StatelessWidget {
 
     required this.onTap,
 
-    required this.onComplete,
+    this.onDelete,
 
   });
 
@@ -36,59 +38,179 @@ class TaskCard extends StatelessWidget {
 
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
 
-      child: ListTile(
+      child: Column(
 
-        leading: Checkbox(
+        mainAxisSize: MainAxisSize.min,
 
-          value: task.isCompleted,
+        children: [
 
-          onChanged: (_) => onComplete(),
+          if (task.categoryId != null)
 
-        ),
+            StreamBuilder<DocumentSnapshot>(
 
-        title: Text(
+              stream: FirebaseFirestore.instance
 
-          task.title,
+                  .collection('categories')
 
-          style: TextStyle(
+                  .doc(task.categoryId)
 
-            decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+                  .snapshots(),
+
+              builder: (context, snapshot) {
+
+                if (!snapshot.hasData) return SizedBox();
+
+                
+
+                final category = TaskCategory.fromMap({
+
+                  ...snapshot.data!.data() as Map<String, dynamic>,
+
+                  'id': snapshot.data!.id,
+
+                });
+
+
+
+                return Container(
+
+                  color: category.color.withOpacity(0.1),
+
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+
+                  child: Row(
+
+                    children: [
+
+                      Container(
+
+                        width: 12,
+
+                        height: 12,
+
+                        decoration: BoxDecoration(
+
+                          color: category.color,
+
+                          shape: BoxShape.circle,
+
+                        ),
+
+                      ),
+
+                      SizedBox(width: 8),
+
+                      Text(
+
+                        category.name,
+
+                        style: TextStyle(
+
+                          color: category.color,
+
+                          fontWeight: FontWeight.bold,
+
+                        ),
+
+                      ),
+
+                    ],
+
+                  ),
+
+                );
+
+              },
+
+            ),
+
+          ListTile(
+
+            title: Text(
+
+              task.title,
+
+              style: TextStyle(
+
+                decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+
+              ),
+
+            ),
+
+            subtitle: Text(task.description),
+
+            trailing: Row(
+
+              mainAxisSize: MainAxisSize.min,
+
+              children: [
+
+                _buildPriorityChip(),
+
+                const SizedBox(width: 8),
+
+                Text(
+
+                  _formatDate(task.dueDate),
+
+                  style: Theme.of(context).textTheme.bodySmall,
+
+                ),
+
+                if (onDelete != null) ...[
+
+                  const SizedBox(width: 8),
+
+                  IconButton(
+
+                    icon: Icon(Icons.delete, color: Colors.red),
+
+                    onPressed: onDelete,
+
+                  ),
+
+                ],
+
+              ],
+
+            ),
+
+            onTap: onTap,
 
           ),
 
-        ),
+          if (_isOverdue())
 
-        subtitle: Text(task.description),
+            Container(
 
-        trailing: Row(
+              color: Colors.red.withOpacity(0.1),
 
-          mainAxisSize: MainAxisSize.min,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
 
-          children: [
+              child: Row(
 
-            Icon(
+                children: [
 
-              Icons.flag,
+                  Icon(Icons.warning, color: Colors.red, size: 16),
 
-              color: _getPriorityColor(task.priority),
+                  SizedBox(width: 8),
+
+                  Text(
+
+                    'Overdue',
+
+                    style: TextStyle(color: Colors.red),
+
+                  ),
+
+                ],
+
+              ),
 
             ),
 
-            const SizedBox(width: 8),
-
-            Text(
-
-              _formatDate(task.dueDate),
-
-              style: Theme.of(context).textTheme.bodySmall,
-
-            ),
-
-          ],
-
-        ),
-
-        onTap: onTap,
+        ],
 
       ),
 
@@ -98,27 +220,75 @@ class TaskCard extends StatelessWidget {
 
 
 
-  Color _getPriorityColor(int priority) {
+  Widget _buildPriorityChip() {
 
-    switch (priority) {
+    Color color;
+
+    String label;
+
+    
+
+    switch (task.priority) {
 
       case 1:
 
-        return Colors.green;
+        color = Colors.green;
+
+        label = 'Low';
+
+        break;
 
       case 2:
 
-        return Colors.orange;
+        color = Colors.orange;
+
+        label = 'Medium';
+
+        break;
 
       case 3:
 
-        return Colors.red;
+        color = Colors.red;
+
+        label = 'High';
+
+        break;
 
       default:
 
-        return Colors.grey;
+        color = Colors.grey;
+
+        label = 'None';
 
     }
+
+
+
+    return Chip(
+
+      label: Text(
+
+        label,
+
+        style: TextStyle(color: Colors.white, fontSize: 12),
+
+      ),
+
+      backgroundColor: color,
+
+      padding: EdgeInsets.zero,
+
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+
+    );
+
+  }
+
+
+
+  bool _isOverdue() {
+
+    return !task.isCompleted && task.dueDate.isBefore(DateTime.now());
 
   }
 

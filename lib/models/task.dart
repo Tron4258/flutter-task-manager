@@ -6,16 +6,27 @@ class Task {
   final bool isCompleted;
   final int priority;
   final String userId;
+  final String? categoryId;
+  final List<String> searchableText;
 
   Task({
     required this.id,
     required this.title,
     required this.description,
     required this.dueDate,
+    required this.userId,
     this.isCompleted = false,
     this.priority = 2,
-    required this.userId,
-  });
+    this.categoryId,
+  }) : searchableText = _generateSearchableText(title, description);
+
+  static List<String> _generateSearchableText(String title, String description) {
+    final words = [...title.toLowerCase().split(' '), ...description.toLowerCase().split(' ')]
+        .where((word) => word.isNotEmpty)
+        .toSet()
+        .toList();
+    return words;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -26,6 +37,8 @@ class Task {
       'isCompleted': isCompleted,
       'priority': priority,
       'userId': userId,
+      'categoryId': categoryId,
+      'searchableText': searchableText,
     };
   }
 
@@ -38,6 +51,7 @@ class Task {
       isCompleted: map['isCompleted'] ?? false,
       priority: map['priority'] ?? 2,
       userId: map['userId'],
+      categoryId: map['categoryId'],
     );
   }
 } 

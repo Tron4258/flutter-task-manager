@@ -59,23 +59,7 @@ class _TaskFormState extends State<TaskForm> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<int>(
-                    value: _priority,
-                    decoration: InputDecoration(
-                      labelText: 'Priority',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      DropdownMenuItem(value: 1, child: Text('Low')),
-                      DropdownMenuItem(value: 2, child: Text('Medium')),
-                      DropdownMenuItem(value: 3, child: Text('High')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _priority = value ?? 2;
-                      });
-                    },
-                  ),
+                  child: _buildPriorityField(),
                 ),
                 SizedBox(width: 16),
                 Expanded(
@@ -120,10 +104,13 @@ class _TaskFormState extends State<TaskForm> {
 
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
+      final title = _titleController.text.trim();
+      final description = _descriptionController.text.trim();
+      
       final task = Task(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: _titleController.text,
-        description: _descriptionController.text,
+        title: title,
+        description: description,
         dueDate: _dueDate,
         priority: _priority,
         isCompleted: false,
@@ -136,12 +123,51 @@ class _TaskFormState extends State<TaskForm> {
             .doc(task.id)
             .set(task.toMap());
         Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Task added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding task: $e')),
+          SnackBar(
+            content: Text('Error adding task: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
+  }
+
+  Widget _buildPriorityField() {
+    return FormField<int>(
+      initialValue: _priority,
+      validator: (value) => value == null ? 'Priority is required' : null,
+      builder: (FormFieldState<int> state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SegmentedButton<int>(
+              segments: [
+                ButtonSegment(value: 1, label: Text('Low'), icon: Icon(Icons.low_priority)),
+                ButtonSegment(value: 2, label: Text('Medium'), icon: Icon(Icons.pending)),
+                ButtonSegment(value: 3, label: Text('High'), icon: Icon(Icons.priority_high)),
+              ],
+              selected: {_priority},
+              onSelectionChanged: (Set<int> newSelection) {
+                setState(() => _priority = newSelection.first);
+              },
+            ),
+            if (state.hasError)
+              Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(state.errorText!, style: TextStyle(color: Colors.red)),
+              ),
+          ],
+        );
+      },
+    );
   }
 
   @override
